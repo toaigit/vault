@@ -1,4 +1,5 @@
 #!/bin/bash
+. /usr/local/bin/vault.env
 vault operator step-down
 PID=`ps -wef | grep -v grep | grep "vault server" | awk '{print $2}'`
 kill $PID
