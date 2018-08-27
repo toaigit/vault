@@ -1,0 +1,15 @@
+#!/bin/bash
+#   associate Vault to IAM-with-Provision-Power
+#
+
+. /usr/local/bin/vault.env
+#
+VTOKEN=`grep "Token:" $VAULT_INFO | awk  '{print $4}'`
+export VAULT_TOKEN=$VTOKEN
+
+REGION=us-west-2
+echo -n "Access Key: " ; read ACCESS_KEY
+echo -n "Secret Key: " ; read SECRET_KEY
+set -xv
+vault write aws/config/root access_key=$ACCESS_KEY secret_key=$SECRET_KEY REGION=$REGION 
+vault write  aws/config/lease lease=3h lease_max=12h

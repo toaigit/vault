@@ -1,0 +1,6 @@
+#!/bin/bash
+vault operator step-down
+PID=`ps -wef | grep -v grep | grep "vault server" | awk '{print $2}'`
+kill $PID
+sleep 2
+ps -wwef | grep "vault server"

@@ -1,0 +1,20 @@
+#!/bin/sh
+#    add new policy
+#
+
+. /usr/local/bin/vault.env
+
+if [ $# -ne 2 ] ; then
+   echo "Usage: $0 acctno policyName"
+   exit 1
+fi
+
+ACCTNO=$1
+POLICY=$2
+
+vault write aws/roles/$POLICY arn=arn:aws:iam::$ACCTNO:policy/$POLICY -tls-skip-verify
+if [ $? -eq 0 ] ; then
+   echo "Policy added."
+else
+   echo "Failed to add policy $2"
+fi

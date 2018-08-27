@@ -1,0 +1,13 @@
+#!/bin/bash
+. /usr/local/bin/vault.env
+nohup vault server -config=$VAULT_CONFIG &
+sleep 5
+VKEY1=`grep "Key 1:" $VAULT_INFO | awk  '{print $4}'`
+VKEY2=`grep "Key 2:" $VAULT_INFO | awk  '{print $4}'`
+VKEY3=`grep "Key 3:" $VAULT_INFO | awk  '{print $4}'`
+VTOKEN=`grep "Token:" $VAULT_INFO | awk  '{print $4}'`
+vault operator unseal $VKEY1
+sleep 3
+vault operator unseal $VKEY2
+sleep 3
+vault status

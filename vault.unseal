@@ -1,0 +1,9 @@
+#!/bin/bash
+. /usr/local/bin/vault.env
+VKEY1=`grep "Key 1:" $VAULT_INFO | awk  '{print $4}'`
+VKEY2=`grep "Key 2:" $VAULT_INFO | awk  '{print $4}'`
+VKEY3=`grep "Key 3:" $VAULT_INFO | awk  '{print $4}'`
+VTOKEN=`grep "Token:" $VAULT_INFO | awk  '{print $4}'`
+sleep 2
+vault operator unseal $VKEY1
+vault operator unseal $VKEY2
