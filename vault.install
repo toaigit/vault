@@ -3,26 +3,8 @@
 
 . /usr/local/bin/vault.env
 
-if [ -d $VAULT_DATA ] ; then
-   echo “Vault created previously.  SKIP”
-   echo "Starting the Vault ..."
-   nohup vault server -config=$VAULT_CONFIG &
-   sleep 6
-   vault status
-   exit 0
-fi
-rm -rf /apps/vault/*
-mkdir -p $VAULT_DATA $VAULT_BIN $VAULT_CONFDIR
-sed -e s/HOSTIP/$HOSTIP/ $CERT_TEMP > $CERT_CONF
-openssl req -new -newkey rsa:2048 -sha256 -days 3650 -nodes -x509 \
-    -keyout $VAULT_CONFDIR/vault.key -out $VAULT_CONFDIR/vault.crt -config $CERT_CONF
 
-chmod 600 $VAULT_CONFDIR/vault.key
-
-cd $VAULT_BIN
-curl -s https://releases.hashicorp.com/vault/0.10.4/vault_0.10.4_linux_amd64.zip -o vault.zip
-unzip vault.zip
-ln -s $VAULT_BIN/vault /usr/local/bin/vault
+genconf () {
 
 cat <<EOF > $VAULT_CONFIG
 backend "file" {
@@ -37,32 +19,91 @@ listener "tcp" {
 }
 EOF
 
-nohup vault server -config=$VAULT_CONFIG &
-sleep 6
+}
 
-vault operator init -key-shares=3 -key-threshold=2 | tee $VAULT_INFO
-chmod 700 $VAULT_INFO
-sleep 5
+unseal () {
+
 VKEY1=`grep "Key 1:" $VAULT_INFO | awk  '{print $4}'`
 VKEY2=`grep "Key 2:" $VAULT_INFO | awk  '{print $4}'`
 VKEY3=`grep "Key 3:" $VAULT_INFO | awk  '{print $4}'`
 VTOKEN=`grep "Token:" $VAULT_INFO | awk  '{print $4}'`
-vault operator unseal $VKEY1
-sleep 3
-vault operator unseal $VKEY2
-sleep 3
 
+echo "Unseal the Vault ..."
+touch /tmp/going.unseal.vault
+vault operator unseal $VKEY1
+sleep 1
+vault operator unseal $VKEY2
+sleep 1
+touch /tmp/unsealed.vault
+
+}
+
+if [ -d $VAULT_DATA ] ; then
+   echo “Vault created previously.  SKIP the installation”
+   echo "Generating the vault.json file"
+   genconf
+   echo "Starting the Vault ..."
+   /bin/cp -p /usr/local/bin/vault.service /usr/lib/systemd/system/vault.service
+   cp -pf  $VAULT_BIN/vault /usr/local/bin/vault
+   systemctl daemon-reload
+   systemctl enable vault
+   systemctl start vault
+   unseal
+   exit 0
+fi
+
+rm -rf /apps/vault/*
+mkdir -p $VAULT_DATA $VAULT_BIN $VAULT_CONFDIR
+
+genconf
+
+sed -e s/HOSTIP/$HOSTIP/ $CERT_TEMP > $CERT_CONF
+openssl req -new -newkey rsa:2048 -sha256 -days 3650 -nodes -x509 \
+    -keyout $VAULT_CONFDIR/vault.key -out $VAULT_CONFDIR/vault.crt -config $CERT_CONF
+
+chmod 600 $VAULT_CONFDIR/vault.key
+
+echo "Download the Vault Software ..."
+cd $VAULT_BIN
+curl -s https://releases.hashicorp.com/vault/0.10.4/vault_0.10.4_linux_amd64.zip -o vault.zip
+unzip vault.zip
+cp -pf  $VAULT_BIN/vault /usr/local/bin/vault
+touch /tmp/downloaded.vault
+
+#nohup vault server -config=$VAULT_CONFIG &
+echo "Starting the Vault ..."
+touch /tmp/copy.systemd.startscript
+/bin/cp -p /usr/local/bin/vault.service /usr/lib/systemd/system/vault.service
+systemctl daemon-reload
+systemctl enable vault
+touch /tmp/going.startvault
+systemctl start vault
+touch /tmp/started.vault
+systemctl start vault
+sleep 1
+
+echo "Initializing the Vault ..."
+touch /tmp/going.initilalize.vault
+vault operator init -key-shares=3 -key-threshold=2 | tee $VAULT_INFO
+touch /tmp/initialized.vault
+chmod 700 $VAULT_INFO
+sleep 1
+unseal
 export VAULT_TOKEN=$VTOKEN
+
+echo "Enable Auditting ..."
 vault audit enable file file_path=/var/log/vault_audit.log
+echo "Enable UserPass Engine ..."
+touch /tmp/enabled.audit
 vault auth enable userpass
+touch /tmp/enabled.userpass
 vault write auth/userpass/users/johndoe password="hello" ttl=30m max_ttl=4h
+echo "Checking the Vault Status ..."
 vault status
-vault secrets enable -path=do kv 
+echo "Enable duo KV engine ..."
+vault secrets enable -path=duo kv 
 
 echo "Vault installed and Unseal."
 echo "Dont forget to run add.root and add.policy scripts"
 
-cp /usr/local/bin/vault.service /usr/lib/systemd/system/vault.service
-systemctl daemon-reload
-systemctl enable vault
 #  end of script

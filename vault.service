@@ -11,8 +11,8 @@ SecureBits=keep-caps
 Capabilities=CAP_IPC_LOCK+ep
 CapabilityBoundingSet=CAP_SYSLOG CAP_IPC_LOCK
 NoNewPrivileges=yes
-ExecStart=/usr/local/bin/vault server -config=/apps/vault/conf/vault.json
-ExecStartPost=/usr/local/bin/vault.unseal
+ExecStart=/apps/vault/bin/vault server -config=/apps/vault/conf/vault.json
+#ExecStartPost=/usr/local/bin/vault.unseal
 KillSignal=SIGINT
 TimeoutStopSec=30s
 Restart=on-failure
